@@ -3,13 +3,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Pencil } from "lucide-react"
+import { Pencil, MessageSquare } from "lucide-react"
 
 const Index = () => {
   const [apiKey, setApiKey] = useState('');
   const [chatInput, setChatInput] = useState('');
   const [chatHistory, setChatHistory] = useState([]);
   const [iframeContent, setIframeContent] = useState('');
+  const [activeMode, setActiveMode] = useState('chat');
 
   useEffect(() => {
     const storedApiKey = localStorage.getItem('openai_api_key');
@@ -76,10 +77,23 @@ const Index = () => {
           />
         </div>
         <div className="flex mb-4">
-          <Button variant="outline" className="mr-2 flex-grow">Chat</Button>
-          <Button variant="outline" className="flex-grow">Edit</Button>
+          <Button
+            variant={activeMode === 'chat' ? 'default' : 'outline'}
+            className="mr-2 flex-grow"
+            onClick={() => setActiveMode('chat')}
+          >
+            <MessageSquare className="mr-2 h-4 w-4" /> Chat
+          </Button>
+          <Button
+            variant={activeMode === 'edit' ? 'default' : 'outline'}
+            className="flex-grow"
+            onClick={() => setActiveMode('edit')}
+          >
+            <Pencil className="mr-2 h-4 w-4" /> Edit
+          </Button>
         </div>
-        <div className="h-[calc(100vh-240px)] overflow-y-auto mb-4 bg-gray-50 p-2 rounded">
+        {activeMode === 'chat' && (
+          <div className="h-[calc(100vh-240px)] overflow-y-auto mb-4 bg-gray-50 p-2 rounded">
           {chatHistory.map((msg, index) => (
             <div key={index} className={`mb-2 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
               <span className={`inline-block p-2 rounded ${msg.role === 'user' ? 'bg-blue-100' : 'bg-green-100'}`}>
@@ -87,16 +101,29 @@ const Index = () => {
               </span>
             </div>
           ))}
-        </div>
-        <div className="flex">
-          <Textarea
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            placeholder="Type your message here..."
-            className="flex-grow mr-2"
-          />
-          <Button onClick={handleChatSubmit}>Send</Button>
-        </div>
+          </div>
+        )}
+        {activeMode === 'chat' && (
+          <div className="flex">
+            <Textarea
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              placeholder="Type your message here..."
+              className="flex-grow mr-2"
+            />
+            <Button onClick={handleChatSubmit}>Send</Button>
+          </div>
+        )}
+        {activeMode === 'edit' && (
+          <div className="h-[calc(100vh-240px)] overflow-y-auto mb-4 bg-gray-50 p-2 rounded">
+            <Textarea
+              value={iframeContent}
+              onChange={(e) => setIframeContent(e.target.value)}
+              placeholder="Edit HTML content here..."
+              className="w-full h-full"
+            />
+          </div>
+        )}
       </div>
       <div className="w-2/3 p-4">
         <div className="flex justify-between mb-4">
