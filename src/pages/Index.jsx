@@ -11,18 +11,19 @@ const Index = () => {
   const [chatHistory, setChatHistory] = useState([]);
   const [iframeContent, setIframeContent] = useState('');
   const [activeMode, setActiveMode] = useState('chat');
+  const [selectedAPI, setSelectedAPI] = useState('openai');
 
   useEffect(() => {
-    const storedApiKey = localStorage.getItem('openai_api_key');
+    const storedApiKey = localStorage.getItem(`${selectedAPI}_api_key`);
     if (storedApiKey) {
       setApiKey(storedApiKey);
     }
-  }, []);
+  }, [selectedAPI]);
 
   const handleApiKeyChange = (e) => {
     const newApiKey = e.target.value;
     setApiKey(newApiKey);
-    localStorage.setItem('openai_api_key', newApiKey);
+    localStorage.setItem(`${selectedAPI}_api_key`, newApiKey);
   };
 
   const handleChatSubmit = async () => {
@@ -34,33 +35,56 @@ const Index = () => {
     setChatInput('');
 
     try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a helpful assistant that generates HTML content. Please respond with valid HTML wrapped in <html> tags.'
-            },
-            ...updatedHistory
-          ]
-        })
-      });
+      let response;
+      if (selectedAPI === 'openai') {
+        response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: 'gpt-3.5-turbo',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are a helpful assistant that generates HTML content. Please respond with valid HTML wrapped in <html> tags.'
+              },
+              ...updatedHistory
+            ]
+          })
+        });
+      } else if (selectedAPI === 'anthropic') {
+        response = await fetch('https://gateway.ai.cloudflare.com/v1/2f2f21904fcddcdedee715823a8b8e17/gptengineerapp/anthropic/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: 'claude-3-5-sonnet-20240620',
+            max_tokens: 4096,
+            messages: [
+              {
+                role: 'system',
+                content: 'You are a helpful assistant that generates HTML content. Please respond with valid HTML wrapped in <html> tags.'
+              },
+              ...updatedHistory
+            ]
+          })
+        });
+      }
 
       const data = await response.json();
-      const assistantReply = data.choices[0].message.content;
+      const assistantReply = selectedAPI === 'openai' ? data.choices[0].message.content : data.content[0].text;
       setChatHistory([...updatedHistory, { role: 'assistant', content: assistantReply }]);
 
       // Extract HTML content and update iframe
       const htmlContent = assistantReply.match(/<html>([\s\S]*)<\/html>/i)?.[1] || '';
       setIframeContent(htmlContent);
     } catch (error) {
-      console.error('Error calling OpenAI API:', error);
+      console.error(`Error calling ${selectedAPI.toUpperCase()} API:`, error);
     }
   };
 
@@ -68,9 +92,18 @@ const Index = () => {
     <div className="flex h-screen bg-gray-100">
       <div className="w-1/3 p-4 bg-white shadow-md">
         <div className="mb-4">
+          <Select value={selectedAPI} onValueChange={setSelectedAPI}>
+            <SelectTrigger className="w-full mb-2">
+              <SelectValue placeholder="Select API" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="openai">OpenAI</SelectItem>
+              <SelectItem value="anthropic">Anthropic</SelectItem>
+            </SelectContent>
+          </Select>
           <Input
             type="password"
-            placeholder="Enter OpenAI API Key"
+            placeholder={`Enter ${selectedAPI.toUpperCase()} API Key`}
             value={apiKey}
             onChange={handleApiKeyChange}
             className="mb-2"
