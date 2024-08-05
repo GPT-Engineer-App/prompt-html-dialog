@@ -43,6 +43,15 @@ const Index = () => {
 
     try {
       let response;
+      const messages = [
+        {
+          role: 'system',
+          content: 'You are a helpful assistant that generates HTML content. Please respond with valid HTML wrapped in <html> tags.'
+        },
+        ...chatHistory,
+        newMessage
+      ];
+
       if (apiKey && selectedAPI === 'openai') {
         response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -52,20 +61,9 @@ const Index = () => {
           },
           body: JSON.stringify({
             model: 'gpt-3.5-turbo',
-            messages: [
-              {
-                role: 'system',
-                content: 'You are a helpful assistant that generates HTML content. Please respond with valid HTML wrapped in <html> tags.'
-              },
-              ...updatedHistory
-            ]
+            messages: messages
           })
         });
-        const data = await response.json();
-        const assistantReply = data.choices[0].message.content;
-        setChatHistory([...updatedHistory, { role: 'assistant', content: assistantReply }]);
-        const htmlContent = assistantReply.match(/<html>([\s\S]*)<\/html>/i)?.[1] || '';
-        setIframeContent(htmlContent);
       } else {
         response = await fetch('https://jyltskwmiwqthebrpzxt.supabase.co/functions/v1/llm', {
           method: 'POST',
@@ -73,22 +71,16 @@ const Index = () => {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5bHRza3dtaXdxdGhlYnJwenh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjIxNTA2NjIsImV4cCI6MjAzNzcyNjY2Mn0.a1y6NavG5JxoGJCNrAckAKMvUDaXAmd2Ny0vMvz-7Ng'
           },
-          body: JSON.stringify({
-            messages: [
-              {
-                role: 'system',
-                content: 'You are a helpful assistant that generates HTML content. Please respond with valid HTML wrapped in <html> tags.'
-              },
-              ...updatedHistory
-            ]
-          })
+          body: JSON.stringify({ messages: messages })
         });
-        const data = await response.json();
-        const assistantReply = data.choices[0].message.content;
-        setChatHistory([...updatedHistory, { role: 'assistant', content: assistantReply }]);
-        const htmlContent = assistantReply.match(/<html>([\s\S]*)<\/html>/i)?.[1] || '';
-        setIframeContent(htmlContent);
       }
+
+      const data = await response.json();
+      const assistantReply = data.choices[0].message.content;
+      const newChatHistory = [...updatedHistory, { role: 'assistant', content: assistantReply }];
+      setChatHistory(newChatHistory);
+      const htmlContent = assistantReply.match(/<html>([\s\S]*)<\/html>/i)?.[1] || '';
+      setIframeContent(htmlContent);
     } catch (error) {
       console.error(`Error calling API:`, error);
     }
