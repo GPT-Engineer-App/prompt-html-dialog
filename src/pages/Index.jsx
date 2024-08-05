@@ -76,13 +76,24 @@ const Index = () => {
       }
 
       const data = await response.json();
-      const assistantReply = data.choices[0].message.content;
+      let assistantReply;
+      if (data.choices && data.choices[0]) {
+        // OpenAI API response format
+        assistantReply = data.choices[0].message.content;
+      } else if (data.content) {
+        // Default API (Supabase function) response format
+        assistantReply = data.content[0].text;
+      } else {
+        throw new Error('Unexpected API response format');
+      }
       const newChatHistory = [...updatedHistory, { role: 'assistant', content: assistantReply }];
       setChatHistory(newChatHistory);
       const htmlContent = assistantReply.match(/<html>([\s\S]*)<\/html>/i)?.[1] || '';
       setIframeContent(htmlContent);
     } catch (error) {
       console.error(`Error calling API:`, error);
+      const errorMessage = error.message || 'An unexpected error occurred';
+      setChatHistory([...updatedHistory, { role: 'assistant', content: `Error: ${errorMessage}` }]);
     }
   };
 
