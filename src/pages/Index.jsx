@@ -11,19 +11,26 @@ const Index = () => {
   const [chatHistory, setChatHistory] = useState([]);
   const [iframeContent, setIframeContent] = useState('');
   const [activeMode, setActiveMode] = useState('chat');
-  const [selectedAPI, setSelectedAPI] = useState('openai');
+  const [selectedAPI, setSelectedAPI] = useState('default');
 
   useEffect(() => {
-    const storedApiKey = localStorage.getItem(`${selectedAPI}_api_key`);
+    const storedApiKey = localStorage.getItem('openai_api_key');
     if (storedApiKey) {
       setApiKey(storedApiKey);
+      setSelectedAPI('openai');
     }
-  }, [selectedAPI]);
+  }, []);
 
   const handleApiKeyChange = (e) => {
     const newApiKey = e.target.value;
     setApiKey(newApiKey);
-    localStorage.setItem(`${selectedAPI}_api_key`, newApiKey);
+    if (newApiKey) {
+      localStorage.setItem('openai_api_key', newApiKey);
+      setSelectedAPI('openai');
+    } else {
+      localStorage.removeItem('openai_api_key');
+      setSelectedAPI('default');
+    }
   };
 
   const handleChatSubmit = async () => {
@@ -36,7 +43,7 @@ const Index = () => {
 
     try {
       let response;
-      if (selectedAPI === 'openai') {
+      if (apiKey && selectedAPI === 'openai') {
         response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -54,17 +61,19 @@ const Index = () => {
             ]
           })
         });
-      } else if (selectedAPI === 'anthropic') {
-        response = await fetch('https://gateway.ai.cloudflare.com/v1/2f2f21904fcddcdedee715823a8b8e17/gptengineerapp/anthropic/v1/messages', {
+        const data = await response.json();
+        const assistantReply = data.choices[0].message.content;
+        setChatHistory([...updatedHistory, { role: 'assistant', content: assistantReply }]);
+        const htmlContent = assistantReply.match(/<html>([\s\S]*)<\/html>/i)?.[1] || '';
+        setIframeContent(htmlContent);
+      } else {
+        response = await fetch('https://jyltskwmiwqthebrpzxt.supabase.co/functions/v1/llm', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01'
+            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5bHRza3dtaXdxdGhlYnJwenh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjIxNTA2NjIsImV4cCI6MjAzNzcyNjY2Mn0.a1y6NavG5JxoGJCNrAckAKMvUDaXAmd2Ny0vMvz-7Ng'
           },
           body: JSON.stringify({
-            model: 'claude-3-5-sonnet-20240620',
-            max_tokens: 4096,
             messages: [
               {
                 role: 'system',
@@ -74,17 +83,14 @@ const Index = () => {
             ]
           })
         });
+        const data = await response.json();
+        const assistantReply = data.choices[0].message.content;
+        setChatHistory([...updatedHistory, { role: 'assistant', content: assistantReply }]);
+        const htmlContent = assistantReply.match(/<html>([\s\S]*)<\/html>/i)?.[1] || '';
+        setIframeContent(htmlContent);
       }
-
-      const data = await response.json();
-      const assistantReply = selectedAPI === 'openai' ? data.choices[0].message.content : data.content[0].text;
-      setChatHistory([...updatedHistory, { role: 'assistant', content: assistantReply }]);
-
-      // Extract HTML content and update iframe
-      const htmlContent = assistantReply.match(/<html>([\s\S]*)<\/html>/i)?.[1] || '';
-      setIframeContent(htmlContent);
     } catch (error) {
-      console.error(`Error calling ${selectedAPI.toUpperCase()} API:`, error);
+      console.error(`Error calling API:`, error);
     }
   };
 
@@ -92,22 +98,16 @@ const Index = () => {
     <div className="flex h-screen bg-gray-100">
       <div className="w-1/3 p-4 bg-white shadow-md">
         <div className="mb-4">
-          <Select value={selectedAPI} onValueChange={setSelectedAPI}>
-            <SelectTrigger className="w-full mb-2">
-              <SelectValue placeholder="Select API" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="openai">OpenAI</SelectItem>
-              <SelectItem value="anthropic">Anthropic</SelectItem>
-            </SelectContent>
-          </Select>
           <Input
             type="password"
-            placeholder={`Enter ${selectedAPI.toUpperCase()} API Key`}
+            placeholder="Enter OpenAI API Key (optional)"
             value={apiKey}
             onChange={handleApiKeyChange}
             className="mb-2"
           />
+          <p className="text-sm text-gray-500">
+            {selectedAPI === 'openai' ? 'Using OpenAI API' : 'Using default API'}
+          </p>
         </div>
         <div className="flex mb-4">
           <Button
